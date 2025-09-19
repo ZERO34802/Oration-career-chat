@@ -1,15 +1,17 @@
 import { router, publicProcedure } from "@/server/trpc";
 import { z } from "zod";
 import { prisma } from "@/server/db";
+import { getAssistantReply } from "@/server/llm";
 
 export const messageRouter = router({
+  // List messages for a session (ascending so chat reads top→bottom)
   listBySession: publicProcedure
     .input(z.object({ sessionId: z.string().uuid(), cursor: z.string().nullish(), take: z.number().default(30) }))
     .query(async ({ input }) => {
       const take = input.take ?? 30;
       const items = await prisma.message.findMany({
         where: { sessionId: input.sessionId },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: "asc" },
         take: take + 1,
         ...(input.cursor ? { skip: 1, cursor: { id: input.cursor } } : {}),
         select: { id: true, role: true, content: true, createdAt: true },
@@ -19,9 +21,10 @@ export const messageRouter = router({
         const next = items.pop()!;
         nextCursor = next.id;
       }
-      return { items: items.reverse(), nextCursor };
+      return { items, nextCursor };
     }),
 
+  // Legacy helper to add only a user message (kept for testing)
   addUserMessage: publicProcedure
     .input(z.object({ sessionId: z.string().uuid(), content: z.string().min(1) }))
     .mutation(async ({ input }) => {
@@ -29,6 +32,45 @@ export const messageRouter = router({
         data: { sessionId: input.sessionId, role: "user", content: input.content },
         select: { id: true, role: true, content: true, createdAt: true },
       });
+      await prisma.chatSession.update({ where: { id: input.sessionId }, data: { updatedAt: new Date() } });
       return msg;
+    }),
+
+  // New: Saves user msg, calls model, saves assistant reply, returns both
+  sendMessage: publicProcedure
+    .input(z.object({ sessionId: z.string().uuid(), content: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      // 1) Save user message
+      const userMsg = await prisma.message.create({
+        data: { sessionId: input.sessionId, role: "user", content: input.content },
+        select: { id: true, role: true, content: true, createdAt: true },
+      });
+
+      // 2) Collect recent context (last ~24, ascending)
+      const recent = await prisma.message.findMany({
+        where: { sessionId: input.sessionId },
+        orderBy: { createdAt: "asc" },
+        take: 24,
+        select: { role: true, content: true },
+      });
+
+      // 3) System prompt for career counselor tone
+      const system = {
+        role: "system" as const,
+        content:
+          "You are a warm, practical career counselor. Give concise, actionable guidance and next steps, and ask clarifying questions when helpful.",
+      };
+
+      // 4) Call the LLM
+      const replyText = await getAssistantReply([system, ...recent]);
+
+      // 5) Save assistant message and touch session
+      const aiMsg = await prisma.message.create({
+        data: { sessionId: input.sessionId, role: "assistant", content: replyText },
+        select: { id: true, role: true, content: true, createdAt: true },
+      });
+      await prisma.chatSession.update({ where: { id: input.sessionId }, data: { updatedAt: new Date() } });
+
+      return { user: userMsg, assistant: aiMsg };
     }),
 });

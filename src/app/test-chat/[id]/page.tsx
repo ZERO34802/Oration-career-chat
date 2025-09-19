@@ -14,7 +14,7 @@ export default function TestChatPage() {
     sessionId: id,
   });
 
-  const addUser = trpc.message.addUserMessage.useMutation({
+  const send = trpc.message.sendMessage.useMutation({
     onSuccess: () => {
       setText("");
       utils.message.listBySession.invalidate({ sessionId: id });
@@ -46,10 +46,10 @@ export default function TestChatPage() {
           className="border px-3 py-2 rounded w-80"
         />
         <Button
-          disabled={!text}
-          onClick={() => addUser.mutate({ sessionId: id, content: text })}
+          disabled={!text || send.isPending}
+          onClick={() => send.mutate({ sessionId: id, content: text })}
         >
-          Send
+          {send.isPending ? "Sending…" : "Send"}
         </Button>
       </div>
     </div>
