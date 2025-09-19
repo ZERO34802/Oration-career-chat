@@ -46,6 +46,19 @@ export const messageRouter = router({
         select: { id: true, role: true, content: true, createdAt: true },
       });
 
+      // 1a) Auto-name session from first user message if title is default/empty
+      const session = await prisma.chatSession.findUnique({
+        where: { id: input.sessionId },
+        select: { title: true },
+      });
+      if (session && (session.title === "New session" || session.title.trim().length === 0)) {
+        const newTitle = userMsg.content.split(/\s+/).slice(0, 8).join(" ");
+        await prisma.chatSession.update({
+          where: { id: input.sessionId },
+          data: { title: newTitle, updatedAt: new Date() },
+        });
+      }
+
       // 2) Collect recent context (last ~24, ascending)
       const recent = await prisma.message.findMany({
         where: { sessionId: input.sessionId },

@@ -32,13 +32,12 @@ export const sessionRouter = router({
     }),
 
   rename: publicProcedure
-    .input(z.object({ id: z.string().uuid(), title: z.string().min(1).max(100) }))
-    .mutation(async ({ input }) => {
-      const s = await prisma.chatSession.update({
-        where: { id: input.id },
-        data: { title: input.title },
-        select: { id: true, title: true, updatedAt: true },
-      });
-      return s;
-    }),
+  .input(z.object({ id: z.string().uuid(), title: z.string().min(1).max(100) }))
+  .mutation(async ({ input }) => {
+    return prisma.chatSession.update({
+      where: { id: input.id },
+      data: { title: input.title },
+      select: { id: true, title: true, updatedAt: true },
+    });
+  }),
 });
