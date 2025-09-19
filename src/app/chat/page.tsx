@@ -3,16 +3,19 @@
 import { trpc } from "@/lib/trpc";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 import React from "react";
 
 export default function ChatHome() {
   const utils = trpc.useUtils();
+  const router = useRouter();
+
   const { data, isLoading, error } = trpc.session.list.useQuery();
+
   const create = trpc.session.create.useMutation({
     onSuccess: (s) => {
       utils.session.list.invalidate();
-      // If your server returns the new session id, optionally redirect:
-      // if (s?.id) router.push(`/chat/${s.id}`);
+      if (s?.id) router.push(`/chat/${s.id}`);
     },
   });
 
@@ -22,7 +25,7 @@ export default function ChatHome() {
       <aside className="w-72 border-r p-3 flex flex-col">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold">Sessions</h2>
-          <Button size="sm" onClick={() => create.mutate({ title: "New chat" })}>
+          <Button size="sm" onClick={() => create.mutate({ title: "New Chat" })}>
             New
           </Button>
         </div>
