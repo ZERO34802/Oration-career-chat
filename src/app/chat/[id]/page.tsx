@@ -9,7 +9,6 @@ import Link from "next/link";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 
-
 export default function ChatSessionPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -27,18 +26,20 @@ export default function ChatSessionPage() {
   const [userTyping, setUserTyping] = useState(false);
   const [lastSentId, setLastSentId] = useState<string | null>(null);
 
+  // Typewriter state (newest assistant message)
+  const [typingMsgId, setTypingMsgId] = useState<string | null>(null);
+  const [typedText, setTypedText] = useState("");
 
-
+  // User typing indicator
   useEffect(() => {
-  if (text.trim().length > 0) {
-    setUserTyping(true);
-    const t = setTimeout(() => setUserTyping(false), 1200);
-    return () => clearTimeout(t);
-  } else {
-    setUserTyping(false);
-  }
+    if (text.trim().length > 0) {
+      setUserTyping(true);
+      const t = setTimeout(() => setUserTyping(false), 1200);
+      return () => clearTimeout(t);
+    } else {
+      setUserTyping(false);
+    }
   }, [text]);
-  
 
   // Derive title
   const currentTitle = useMemo(
@@ -61,6 +62,37 @@ export default function ChatSessionPage() {
     }
   );
 
+  // Start/advance typewriter when a new assistant message arrives
+  useEffect(() => {
+    const items = data?.items ?? [];
+    const latestAssistant = [...items].reverse().find((m: any) => m.role === "assistant");
+    if (!latestAssistant) {
+      setTypingMsgId(null);
+      setTypedText("");
+      return;
+    }
+    if (typingMsgId !== latestAssistant.id) {
+      setTypingMsgId(latestAssistant.id);
+      setTypedText("");
+    }
+  }, [data?.items, typingMsgId]);
+
+  useEffect(() => {
+    if (!typingMsgId) return;
+    const items = data?.items ?? [];
+    const msg = items.find((m: any) => m.id === typingMsgId);
+    if (!msg) return;
+
+    const full = msg.content as string;
+    if (typedText.length >= full.length) return;
+
+    const t = setTimeout(() => {
+      setTypedText(full.slice(0, typedText.length + 2)); // 2 chars per tick
+    }, 20);
+
+    return () => clearTimeout(t);
+  }, [typingMsgId, typedText, data?.items]);
+
   // Create session
   const create = trpc.session.create.useMutation({
     onSuccess: (s) => {
@@ -76,24 +108,23 @@ export default function ChatSessionPage() {
 
   // Send message
   const send = trpc.message.send.useMutation({
-  onMutate: (vars) => {
-    setPendingUser(vars.content);
-    setAssistantTyping(true);
-  },
-  onSuccess: (res) => {
-    setText("");
-    setLastSentId(res.user.id); // track which message is “Sent”
-    setPendingUser(null);
-    setAssistantTyping(false);
-    utils.message.list.invalidate({ sessionId: String(id) });
-    utils.session.list.invalidate();
-  },
-  onError: () => {
-    setAssistantTyping(false);
-    setPendingUser(null);
-  },
-});
-
+    onMutate: (vars) => {
+      setPendingUser(vars.content);
+      setAssistantTyping(true);
+    },
+    onSuccess: (res) => {
+      setText("");
+      setLastSentId(res.user.id); // track which message is “Sent”
+      setPendingUser(null);
+      setAssistantTyping(false);
+      utils.message.list.invalidate({ sessionId: String(id) });
+      utils.session.list.invalidate();
+    },
+    onError: () => {
+      setAssistantTyping(false);
+      setPendingUser(null);
+    },
+  });
 
   return (
     <div className="flex h-screen bg-white text-black dark:bg-neutral-950 dark:text-neutral-100">
@@ -167,18 +198,20 @@ export default function ChatSessionPage() {
             </div>
           )}
 
-          <ul className="space-y-3 max-w-3xl">
+          <ul className="space-y-3 max-w-3xl mx-auto">
             {(data?.items ?? []).map((m) => (
-              <li key={m.id} className="flex">
+              <li
+                key={m.id}
+                className={"flex " + (m.role === "user" ? "justify-end" : "justify-start")}
+              >
                 <div
                   className={
-                    "rounded-md px-3 py-2 whitespace-pre-wrap break-words " +
+                    "rounded-md px-3 py-2 whitespace-pre-wrap break-words max-w-[80%] " +
                     (m.role === "assistant"
                       ? "bg-gray-100 text-black dark:bg-neutral-800 dark:text-neutral-100"
                       : "bg-white text-black border dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-800")
                   }
                 >
-
                   <div className="text-xs text-gray-500 dark:text-neutral-400 mb-1">
                     {m.role === "assistant" ? "Assistant" : "User"}
                     {m.role === "user" && lastSentId === m.id && (
@@ -186,24 +219,26 @@ export default function ChatSessionPage() {
                     )}
                   </div>
 
-                  <div>{m.content}</div>
+                  <div>
+                    {m.role === "assistant" && typingMsgId === m.id ? typedText : m.content}
+                  </div>
                 </div>
               </li>
             ))}
 
             {pendingUser && (
-              <li className="flex">
-                <div className="rounded-md px-3 py-2 bg-white text-black border dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-800 whitespace-pre-wrap break-words">
-                  <div className="text-xs text-gray-500 mb-1">User</div>
+              <li className="flex justify-end">
+                <div className="rounded-md px-3 py-2 bg-white text-black border dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-800 whitespace-pre-wrap break-words max-w-[80%]">
+                  <div className="text-xs text-gray-500 dark:text-neutral-400 mb-1">User</div>
                   <div>{pendingUser}</div>
                 </div>
               </li>
             )}
 
             {assistantTyping && (
-              <li className="flex">
-                <div className="rounded-md px-3 py-2 bg-gray-100 text-black dark:bg-neutral-800 dark:text-neutral-100">
-                  <div className="text-xs text-gray-500 mb-1">Assistant</div>
+              <li className="flex justify-start">
+                <div className="rounded-md px-3 py-2 bg-gray-100 text-black dark:bg-neutral-800 dark:text-neutral-100 max-w-[80%]">
+                  <div className="text-xs text-gray-500 dark:text-neutral-400 mb-1">Assistant</div>
                   <span className="inline-flex gap-1 items-end">
                     <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-.3s]"></span>
                     <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-.15s]"></span>
