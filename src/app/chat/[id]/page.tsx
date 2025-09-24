@@ -29,6 +29,8 @@ export default function ChatSessionPage() {
   const scrollToBottom = (smooth = true) => {
     bottomRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "end" });
   };
+  const [creating, setCreating] = useState(false);
+
 
   // Typewriter state (newest assistant message)
   const [typingMsgId, setTypingMsgId] = useState<string | null>(null);
@@ -131,11 +133,16 @@ export default function ChatSessionPage() {
 
   // Create session
   const create = trpc.session.create.useMutation({
+    onMutate: () => setCreating(true),
     onSuccess: (s) => {
       utils.session.list.invalidate();
+      // Close mobile sidebar
+      setSidebarOpen(false);
       if (s?.id) router.push(`/chat/${s.id}`);
     },
+    onSettled: () => setCreating(false),
   });
+
 
   // Rename session
   const rename = trpc.session.rename.useMutation({
@@ -196,13 +203,16 @@ export default function ChatSessionPage() {
             <Button
               size="sm"
               variant="outline"
+              disabled={creating}
               onClick={() => {
-                create.mutate({ title: "New Chat" });
-                setSidebarOpen(false);
+                if (creating) return;
+                const stamp = new Date().toLocaleTimeString();
+                create.mutate({ title: `New Chat ${stamp}` });
               }}
             >
-              New
+              {creating ? "Creating…" : "New"}
             </Button>
+
 
             <Link href="/chat" className="text-sm underline">
               All

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/server/db";
 
 export const sessionRouter = router({
-  // List sessions owned by the signed-in user (new auth-safe version)
+  // List sessions
   list: protectedProcedure
     .input(z.object({ cursor: z.string().nullish(), take: z.number().default(20) }).optional())
     .query(async ({ ctx, input }) => {
@@ -22,25 +22,27 @@ export const sessionRouter = router({
         const next = items.pop()!;
         nextCursor = next.id;
       }
-
       return { items, nextCursor };
     }),
 
-  // Create a session and attach the current user as owner
+  // Create session
   create: protectedProcedure
     .input(z.object({ title: z.string().min(1).max(100) }).optional())
     .mutation(async ({ ctx, input }) => {
-      const session = await prisma.chatSession.create({
+      const stamp = new Date().toISOString().slice(11, 19); // HH:MM:SS
+      const title = input?.title?.trim() || `New Chat ${stamp}`;
+      const s = await prisma.chatSession.create({
         data: {
-          title: input?.title ?? "New Chat",
-          userId: ctx.userId!, // attach owner
+          title,
+          userId: ctx.userId!,
+          updatedAt: new Date(), // ensure it sorts to the top immediately
         },
-        select: { id: true, title: true, updatedAt: true },
+        select: { id: true },
       });
-      return session;
+      return s;
     }),
 
-  // Rename with ownership check
+  // Rename (ownership-checked)
   rename: protectedProcedure
     .input(z.object({ id: z.string().uuid(), title: z.string().min(1).max(100) }))
     .mutation(async ({ ctx, input }) => {
@@ -51,7 +53,6 @@ export const sessionRouter = router({
       if (!s || s.userId !== ctx.userId) {
         throw new Error("NOT_FOUND");
       }
-
       return prisma.chatSession.update({
         where: { id: input.id },
         data: { title: input.title, updatedAt: new Date() },
