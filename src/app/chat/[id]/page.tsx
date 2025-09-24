@@ -22,6 +22,21 @@ export default function ChatSessionPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [pendingUser, setPendingUser] = useState<string | null>(null);
   const [assistantTyping, setAssistantTyping] = useState(false);
+  const [userTyping, setUserTyping] = useState(false);
+  const [lastSentId, setLastSentId] = useState<string | null>(null);
+
+
+
+  useEffect(() => {
+  if (text.trim().length > 0) {
+    setUserTyping(true);
+    const t = setTimeout(() => setUserTyping(false), 1200);
+    return () => clearTimeout(t);
+  } else {
+    setUserTyping(false);
+  }
+  }, [text]);
+  
 
   // Derive title
   const currentTitle = useMemo(
@@ -59,22 +74,24 @@ export default function ChatSessionPage() {
 
   // Send message
   const send = trpc.message.send.useMutation({
-    onMutate: (vars) => {
-      setPendingUser(vars.content);
-      setAssistantTyping(true);
-    },
-    onSuccess: () => {
-      setText("");
-      setPendingUser(null);
-      setAssistantTyping(false);
-      utils.message.list.invalidate({ sessionId: String(id) });
-      utils.session.list.invalidate();
-    },
-    onError: () => {
-      setAssistantTyping(false);
-      setPendingUser(null);
-    },
-  });
+  onMutate: (vars) => {
+    setPendingUser(vars.content);
+    setAssistantTyping(true);
+  },
+  onSuccess: (res) => {
+    setText("");
+    setLastSentId(res.user.id); // track which message is “Sent”
+    setPendingUser(null);
+    setAssistantTyping(false);
+    utils.message.list.invalidate({ sessionId: String(id) });
+    utils.session.list.invalidate();
+  },
+  onError: () => {
+    setAssistantTyping(false);
+    setPendingUser(null);
+  },
+});
+
 
   return (
     <div className="flex h-screen">
@@ -156,7 +173,13 @@ export default function ChatSessionPage() {
                     (m.role === "assistant" ? "bg-gray-100" : "bg-white border")
                   }
                 >
-                  <div className="text-xs text-gray-500 mb-1">{m.role === "assistant" ? "Assistant" : "User"}</div>
+                  <div className="text-xs text-gray-500 mb-1">
+                    {m.role === "assistant" ? "Assistant" : "User"}
+                    {m.role === "user" && lastSentId === m.id && (
+                      <span className="ml-2 text-[10px] text-gray-400">Sent ✓</span>
+                    )}
+                  </div>
+
                   <div>{m.content}</div>
                 </div>
               </li>
@@ -185,6 +208,10 @@ export default function ChatSessionPage() {
             )}
           </ul>
         </section>
+
+        {userTyping && (
+          <div className="px-3 pb-2 text-xs text-gray-500">Typing…</div>
+        )}
 
         {/* Composer */}
         <footer className="border-t p-3 flex gap-2">
