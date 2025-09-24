@@ -10,14 +10,14 @@ export default function TestChatPage() {
   const [text, setText] = useState("");
   const utils = trpc.useUtils();
 
-  const { data, isLoading, error } = trpc.message.listBySession.useQuery({
+  const { data, isLoading, error } = trpc.message.list.useQuery({
     sessionId: id,
   });
 
-  const send = trpc.message.sendMessage.useMutation({
+  const send = trpc.message.send.useMutation({
     onSuccess: () => {
       setText("");
-      utils.message.listBySession.invalidate({ sessionId: id });
+      utils.message.list.invalidate({ sessionId: id });
       utils.session.list.invalidate();
     },
   });

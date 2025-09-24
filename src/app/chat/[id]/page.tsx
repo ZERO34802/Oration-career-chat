@@ -1,84 +1,79 @@
+// src/app/chat/[id]/page.tsx
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-
 
 export default function ChatSessionPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const utils = trpc.useUtils();
 
-  const router = useRouter();
+  // Sidebar sessions
+  const sessions = trpc.session.list.useQuery({});
 
+  // Local state
+  const [title, setTitle] = useState("Chat");
+  const [text, setText] = useState("");
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [pendingUser, setPendingUser] = useState<string | null>(null);
+  const [assistantTyping, setAssistantTyping] = useState(false);
+
+  // Derive title
+  const currentTitle = useMemo(
+    () => sessions.data?.items.find((s) => s.id === id)?.title ?? "Chat",
+    [sessions.data, id]
+  );
+  useEffect(() => setTitle(currentTitle), [currentTitle]);
+
+  // Guard queries until id exists
+  const hasId = typeof id === "string" && id.length > 0;
+
+  // Messages (paginated)
+  const { data, isLoading, error, isFetching } = trpc.message.list.useQuery(
+    { sessionId: String(id), cursor, take: 30 },
+    {
+      enabled: hasId,
+      placeholderData: (prev) => prev,
+      refetchOnWindowFocus: false,
+      staleTime: 5_000,
+    }
+  );
+
+  // Create session
   const create = trpc.session.create.useMutation({
     onSuccess: (s) => {
-      // Refresh the list and navigate to the new session
       utils.session.list.invalidate();
       if (s?.id) router.push(`/chat/${s.id}`);
     },
   });
 
-
-  // Pagination state
-  const [cursor, setCursor] = useState<string | null>(null);
-
-  // Messages query with cursor
-  const { data, isLoading, error, isFetching } = trpc.message.listBySession.useQuery(
-  { sessionId: id, cursor, take: 30 },
-  {
-    placeholderData: (prev) => prev, // keeps previous page while fetching
-    refetchOnWindowFocus: false,
-    staleTime: 5_000,
-  }
-  );
-  
-  const [pendingUser, setPendingUser] = useState<string | null>(null);
-  const [assistantTyping, setAssistantTyping] = useState(false);
-
-
-  // Session list for the sidebar
-  const sessions = trpc.session.list.useQuery();
-
-  // Rename mutation
+  // Rename session
   const rename = trpc.session.rename.useMutation({
     onSuccess: () => sessions.refetch(),
   });
 
-  const [optimistic, setOptimistic] = useState<string | null>(null);
-
-  // sendMessage mutation
-  const send = trpc.message.sendMessage.useMutation({
+  // Send message
+  const send = trpc.message.send.useMutation({
     onMutate: (vars) => {
-      setPendingUser(vars.content);       // show just-typed user text at bottom
-      setAssistantTyping(true);           // show typing bubble
+      setPendingUser(vars.content);
+      setAssistantTyping(true);
     },
     onSuccess: () => {
       setText("");
-      setPendingUser(null);               // clear pending user bubble
-      setAssistantTyping(false);          // hide typing bubble
-      utils.message.listBySession.invalidate({ sessionId: id });
+      setPendingUser(null);
+      setAssistantTyping(false);
+      utils.message.list.invalidate({ sessionId: String(id) });
       utils.session.list.invalidate();
     },
     onError: () => {
       setAssistantTyping(false);
-      setPendingUser(null);               // remove pending on error to avoid duplication
+      setPendingUser(null);
     },
   });
-
-
-
-  // Compose title input
-  const currentTitle = useMemo(() => {
-    return sessions.data?.items.find((s) => s.id === id)?.title ?? "Chat";
-  }, [sessions.data, id]);
-  const [title, setTitle] = useState(currentTitle);
-  useEffect(() => setTitle(currentTitle), [currentTitle]);
-
-  const [text, setText] = useState("");
 
   return (
     <div className="flex h-screen">
@@ -97,7 +92,7 @@ export default function ChatSessionPage() {
         </div>
 
         <ul className="space-y-2 overflow-auto pr-1">
-          {sessions.data?.items.map((s) => (
+          {(sessions.data?.items ?? []).map((s) => (
             <li key={s.id} className={`truncate ${s.id === id ? "font-semibold" : ""}`}>
               <Link className="block hover:underline" href={`/chat/${s.id}`}>
                 {s.title}
@@ -108,7 +103,6 @@ export default function ChatSessionPage() {
             </li>
           ))}
         </ul>
-
       </aside>
 
       {/* Main */}
@@ -122,7 +116,7 @@ export default function ChatSessionPage() {
             onBlur={() => {
               const trimmed = title.trim();
               if (trimmed && trimmed !== currentTitle) {
-                rename.mutate({ id, title: trimmed });
+                rename.mutate({ id: String(id), title: trimmed });
               } else {
                 setTitle(currentTitle);
               }
@@ -136,7 +130,6 @@ export default function ChatSessionPage() {
           {isLoading && <p>Loading…</p>}
           {error && <p className="text-red-600">Error loading messages</p>}
 
-          {/* Load older */}
           {data?.nextCursor && (
             <div className="mb-3">
               <Button
@@ -150,17 +143,8 @@ export default function ChatSessionPage() {
             </div>
           )}
 
-          {/* Optimistic user bubble */}
-          {optimistic && (
-            <div className="mb-2 rounded-md px-3 py-2 bg-white border max-w-3xl">
-              <div className="text-xs text-gray-500 mb-1">User</div>
-              <div className="whitespace-pre-wrap break-words">{optimistic}</div>
-            </div>
-          )}
-
-
           <ul className="space-y-3 max-w-3xl">
-            {data?.items.map((m) => (
+            {(data?.items ?? []).map((m) => (
               <li key={m.id} className="flex">
                 <div
                   className={
@@ -196,7 +180,6 @@ export default function ChatSessionPage() {
               </li>
             )}
           </ul>
-
         </section>
 
         {/* Composer */}
@@ -210,21 +193,20 @@ export default function ChatSessionPage() {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 const content = text.trim();
-                if (content) send.mutate({ sessionId: id, content });
+                if (content && hasId) send.mutate({ sessionId: String(id), content });
               }
             }}
           />
           <Button
-            disabled={!text.trim() || send.isPending}
+            disabled={!text.trim() || send.isPending || !hasId}
             onClick={() => {
               const content = text.trim();
-              if (content) send.mutate({ sessionId: id, content });
+              if (content && hasId) send.mutate({ sessionId: String(id), content });
             }}
           >
             {send.isPending ? "Sending…" : "Send"}
           </Button>
         </footer>
-
       </main>
     </div>
   );
