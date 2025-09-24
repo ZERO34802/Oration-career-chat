@@ -6,6 +6,7 @@ import { trpc } from "@/lib/trpc";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { LogoutButton } from "@/components/auth/logout-button";
 
 export default function ChatSessionPage() {
   const { id } = useParams<{ id: string }>();
@@ -123,6 +124,9 @@ export default function ChatSessionPage() {
             }}
           />
           {rename.isPending && <span className="text-xs text-gray-500">Saving…</span>}
+          <div className="ml-auto">
+            <LogoutButton />
+          </div>
         </header>
 
         {/* Messages */}

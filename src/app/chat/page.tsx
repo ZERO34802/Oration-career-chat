@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useRouter, useParams } from "next/navigation";
 import React, { useState } from "react";
+import { LogoutButton } from "@/components/auth/logout-button";
 
 export default function ChatById() {
   const { id } = useParams<{ id: string }>();
@@ -57,6 +58,13 @@ export default function ChatById() {
           <Button size="sm" onClick={() => create.mutate({ title: "New Chat" })}>
             New
           </Button>
+        </div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">Sessions</h2>
+          <div className="flex items-center gap-2">
+            {/* existing New button, etc. */}
+            <LogoutButton />
+          </div>
         </div>
         {sessionsLoading && <p>Loading…</p>}
         {sessionsError && <p className="text-red-600">Error loading sessions</p>}
