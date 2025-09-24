@@ -2,7 +2,21 @@
 import { router, protectedProcedure } from "@/server/trpc";
 import { z } from "zod";
 import { prisma } from "@/server/db";
-import { getAssistantReply } from "@/server/llm";
+import { buildCounselorPrompt, getAssistantReply } from "@/server/llm";
+
+function withTimeout<T>(p: Promise<T>, ms = 20000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("LLM_TIMEOUT")), ms);
+    p.then((v) => {
+      clearTimeout(t);
+      resolve(v);
+    }).catch((e) => {
+      clearTimeout(t);
+      reject(e);
+    });
+  });
+}
+
 
 export const messageRouter = router({
   // List messages (ascending) with cursor pagination
@@ -71,6 +85,14 @@ export const messageRouter = router({
           throw new Error("NOT_FOUND");
         }
 
+        const oneMinuteAgo = new Date(Date.now() - 60_000);
+        const recentUserCount = await prisma.message.count({
+          where: { sessionId: input.sessionId, role: "user", createdAt: { gte: oneMinuteAgo } },
+        });
+        if (recentUserCount > 20) {
+          throw new Error("RATE_LIMIT");
+        }
+
         const userMsg = await prisma.message.create({
           data: { sessionId: input.sessionId, role: "user", content: input.content },
           select: { id: true, role: true, content: true, createdAt: true },
@@ -90,25 +112,28 @@ export const messageRouter = router({
           });
         }
 
-        // Collect short context
+        // Collect short context (then build counselor prompt)
         const recent = await prisma.message.findMany({
           where: { sessionId: input.sessionId },
           orderBy: { createdAt: "asc" },
-          take: 24,
           select: { role: true, content: true },
+          take: 50, // load more; builder will slice to last N turns
         });
 
-        // Call LLM with fallback to avoid 500s if the model fails
         let replyText =
           "Thanks for sharing — give one specific goal or constraint, and practical next steps will be suggested.";
         try {
-          replyText = await getAssistantReply([
-            { role: "system", content: "You are a warm, practical career counselor. Be concise and actionable." },
-            ...recent,
-          ]);
+          const history = recent.map((m) => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          }));
+          const prompt = buildCounselorPrompt(history, 25);
+          replyText = await withTimeout(getAssistantReply(prompt), 20000);
+
         } catch (e) {
           console.error("LLM call failed:", e);
         }
+
 
         const aiMsg = await prisma.message.create({
           data: { sessionId: input.sessionId, role: "assistant", content: replyText },
