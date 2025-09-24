@@ -33,6 +33,8 @@ export default function ChatSessionPage() {
   // Typewriter state (newest assistant message)
   const [typingMsgId, setTypingMsgId] = useState<string | null>(null);
   const [typedText, setTypedText] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
 
   const typedKey = `typed:lastAssistant:${id}`;
   const getStoredTypedId = () => {
@@ -43,7 +45,6 @@ export default function ChatSessionPage() {
     if (typeof window === "undefined") return;
     localStorage.setItem(typedKey, val);
   };
-
 
   // User typing indicator
   useEffect(() => {
@@ -98,19 +99,16 @@ export default function ChatSessionPage() {
       return;
     }
     const stored = getStoredTypedId();
-    // Only animate if there is no stored id, or the latest assistant id is different (newer) than stored.
     if (!stored || stored !== latestAssistant.id) {
       if (typingMsgId !== latestAssistant.id) {
         setTypingMsgId(latestAssistant.id);
         setTypedText("");
       }
     } else {
-      // Already typed before — render fully
       setTypingMsgId(null);
       setTypedText("");
     }
   }, [data?.items, typingMsgId]);
-
 
   useEffect(() => {
     if (!typingMsgId) return;
@@ -120,7 +118,6 @@ export default function ChatSessionPage() {
 
     const full = msg.content as string;
     if (typedText.length >= full.length) {
-      // Mark as typed so it won't replay next time
       setStoredTypedId(typingMsgId);
       return;
     }
@@ -131,7 +128,6 @@ export default function ChatSessionPage() {
 
     return () => clearTimeout(t);
   }, [typingMsgId, typedText, data?.items]);
-
 
   // Create session
   const create = trpc.session.create.useMutation({
@@ -154,7 +150,7 @@ export default function ChatSessionPage() {
     },
     onSuccess: (res) => {
       setText("");
-      setLastSentId(res.user.id); // track which message is “Sent”
+      setLastSentId(res.user.id);
       setPendingUser(null);
       setAssistantTyping(false);
       utils.message.list.invalidate({ sessionId: String(id) });
@@ -168,13 +164,27 @@ export default function ChatSessionPage() {
   });
 
   return (
-    <div className="flex h-screen bg-white text-black dark:bg-neutral-950 dark:text-neutral-100">
+    <div className="flex h-screen flex-col sm:flex-row bg-white text-black dark:bg-neutral-950 dark:text-neutral-100">
       {/* Sidebar */}
-      <aside className="w-72 border-r p-3 flex flex-col bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800">
+      <aside
+        className={
+          "sm:w-72 w-full sm:h-auto h-[200px] sm:h-auto border-b sm:border-b-0 sm:border-r p-3 flex flex-col bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 overflow-auto " +
+          (sidebarOpen ? "block" : "hidden sm:block")
+        }
+      >
+
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-black dark:text-neutral-100">Sessions</h2>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => create.mutate({ title: "New Chat" })}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                create.mutate({ title: "New Chat" });
+                setSidebarOpen(false);
+              }}
+            >
+
               New
             </Button>
             <Link href="/chat" className="text-sm underline">
@@ -186,7 +196,12 @@ export default function ChatSessionPage() {
         <ul className="space-y-2 overflow-auto pr-1">
           {(sessions.data?.items ?? []).map((s) => (
             <li key={s.id} className={`truncate ${s.id === id ? "font-semibold" : ""}`}>
-              <Link className="block hover:underline" href={`/chat/${s.id}`}>
+              <Link
+                className="block hover:underline"
+                href={`/chat/${s.id}`}
+                onClick={() => setSidebarOpen(false)}
+              >
+
                 {s.title}
                 <span className="block text-xs text-gray-500">
                   {new Date((s as any).updatedAt ?? Date.now()).toLocaleString?.() ?? ""}
@@ -198,11 +213,22 @@ export default function ChatSessionPage() {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 flex flex-col bg-white dark:bg-neutral-950">
+      <main className="flex-1 flex flex-col bg-white dark:bg-neutral-950 min-h-0">
         {/* Header with rename */}
-        <header className="border-b p-3 flex items-center gap-2">
+        <header className="border-b p-2 sm:p-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen((v) => !v)}
+            className="sm:hidden inline-flex items-center justify-center w-9 h-9 rounded-md border border-gray-300 dark:border-neutral-700"
+            aria-label="Toggle sidebar"
+          >
+            <span className="block w-5 h-0.5 bg-current mb-1"></span>
+            <span className="block w-5 h-0.5 bg-current mb-1"></span>
+            <span className="block w-5 h-0.5 bg-current"></span>
+          </button>
+
           <input
-            className="border px-2 py-1 rounded w-[420px] max-w-[70vw]"
+            className="border px-2 py-1 rounded w-full sm:w-[420px] sm:max-w-[70vw]"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onBlur={() => {
@@ -239,7 +265,7 @@ export default function ChatSessionPage() {
             </div>
           )}
 
-          <ul className="space-y-3 max-w-3xl mx-auto">
+          <ul className="space-y-3 max-w-3xl mx-auto px-1 sm:px-0">
             {(data?.items ?? []).map((m) => (
               <li
                 key={m.id}
@@ -297,12 +323,12 @@ export default function ChatSessionPage() {
         )}
 
         {/* Composer */}
-        <footer className="border-t p-3 flex gap-2 bg-white dark:bg-neutral-950 dark:border-neutral-800">
+        <footer className="border-t p-2 sm:p-3 flex gap-2 bg-white dark:bg-neutral-950 dark:border-neutral-800">
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Type a message"
-            className="border px-3 py-2 rounded flex-1 resize-none h-[44px] max-h-[120px] bg-white text-black dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-800"
+            className="border px-3 py-2 rounded flex-1 resize-none h-[44px] max-h-[140px] bg-white text-black dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-800"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -313,6 +339,7 @@ export default function ChatSessionPage() {
           />
 
           <Button
+            className="min-w-[72px] min-h-[44px]"
             disabled={!text.trim() || send.isPending || !hasId}
             onClick={() => {
               const content = text.trim();

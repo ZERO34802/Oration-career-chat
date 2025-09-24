@@ -2,14 +2,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 
-
 export default function RegisterPage() {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -45,7 +42,6 @@ export default function RegisterPage() {
         return;
       }
 
-      // Auto sign in after registration
       await signIn("credentials", {
         email,
         password,
@@ -59,9 +55,9 @@ export default function RegisterPage() {
   };
 
   return (
-    <main className="min-h-screen bg-white text-black dark:bg-neutral-950 dark:text-neutral-100 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 rounded-xl shadow-sm p-6">
+    <main className="min-h-screen bg-white text-black dark:bg-neutral-950 dark:text-neutral-100 flex items-center justify-center px-4 py-6">
+      <div className="w-full max-w-md sm:max-w-lg">
+        <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 rounded-xl shadow-sm p-4 sm:p-6">
           <h1 className="text-2xl font-semibold mb-1">Create account</h1>
           <p className="text-sm text-gray-500 dark:text-neutral-400 mb-6">
             Start a new session with an account.
@@ -118,7 +114,7 @@ export default function RegisterPage() {
 
             {error && <div className="text-sm text-red-600">{error}</div>}
 
-            <Button type="submit" className="w-full" disabled={submitting}>
+            <Button type="submit" className="w-full min-h-[44px]" disabled={submitting}>
               {submitting ? "Creating account…" : "Create account"}
             </Button>
           </form>
@@ -131,7 +127,7 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        <p className="mt-6 text-center text-xs text-gray-400">
+        <p className="mt-4 sm:mt-6 text-center text-xs text-gray-400">
           By continuing, agreement to Terms and Privacy applies.
         </p>
       </div>
