@@ -29,16 +29,39 @@ export default function ChatClient({ sessionId }: { sessionId: string }) {
   const scrollToBottom = (smooth = true) => {
     bottomRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "end" });
   };
+
+  
   const [creating, setCreating] = useState(false);
 
   // Typewriter
   const [typingMsgId, setTypingMsgId] = useState<string | null>(null);
   const [typedText, setTypedText] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navBusyRef = useRef(false);
+
+  useEffect(() => {
+  // when id changes, reset local view state
+  setCursor(null);
+  setPendingUser(null);
+  setAssistantTyping(false);
+  setLastSentId(null);
+  setTypingMsgId(null);
+  setTypedText("");
+  // optional: scroll reset aids visual confirmation
+  setTimeout(() => scrollToBottom(false), 0);
+  }, [id]);
+  
 
   const goToSession = (sid: string) => {
+    if (navBusyRef.current) return;
+    navBusyRef.current = true;
     setSidebarOpen(false);
-    setTimeout(() => router.replace(`/chat/${sid}`), 50);
+    // allow the sidebar/backdrop to unmount before navigating
+    setTimeout(() => {
+      router.replace(`/chat/${sid}`);
+      // release lock a bit later to avoid rapid taps
+      setTimeout(() => { navBusyRef.current = false; }, 150);
+    }, 50);
   };
 
   const typedKey = `typed:lastAssistant:${id}`;
@@ -46,6 +69,7 @@ export default function ChatClient({ sessionId }: { sessionId: string }) {
   const setStoredTypedId = (val: string) => {
     if (typeof window !== "undefined") localStorage.setItem(typedKey, val);
   };
+  
 
   useEffect(() => {
     if (text.trim().length > 0) {
@@ -188,7 +212,7 @@ export default function ChatClient({ sessionId }: { sessionId: string }) {
 
         <ul className="space-y-2 overflow-auto pr-1">
           {(sessions.data?.items ?? []).map((s) => (
-            <li key={s.id} className={`truncate ${s.id === id ? "font-semibold" : ""}`}>
+            <li key={s.id} className={`truncate ${String(s.id) === String(id) ? "font-semibold" : ""}`}>
               <Link
                 className="block hover:underline"
                 href={`/chat/${s.id}`}
