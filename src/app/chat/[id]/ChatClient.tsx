@@ -53,14 +53,35 @@ export default function ChatClient({ sessionId }: { sessionId: string }) {
   
 
   const goToSession = (sid: string) => {
+    console.log("goTo", sid); // verify tap fires
+
+    // Ignore if already navigating or tapping the same session
     if (navBusyRef.current || String(sid) === String(id)) return;
+
     navBusyRef.current = true;
+
+    // Close the sidebar first so the overlay can't intercept
     setSidebarOpen(false);
-    const nonce = Date.now(); // cache buster
+
+    const href = `/chat/${sid}`;
+    const nonce = Date.now(); // cache buster for mobile Safari
+
+    // Allow the sidebar/backdrop to unmount before navigation
     setTimeout(() => {
-      router.replace(`/chat/${sid}?n=${nonce}`);
-      setTimeout(() => { navBusyRef.current = false; }, 150);
-    }, 100); // 100ms works best on mobile Safari
+      try {
+        // Preferred: client-side replace to keep app state
+        router.replace(`${href}?n=${nonce}`);
+      } catch (e) {
+        // Fallback: full navigation (bulletproof on older mobile browsers)
+        // eslint-disable-next-line no-restricted-globals
+        location.assign(`${href}?n=${nonce}`);
+      } finally {
+        // Release lock a bit later to avoid rapid double taps
+        setTimeout(() => {
+          navBusyRef.current = false;
+        }, 150);
+      }
+    }, 100); // 100ms works best on iOS to let overlay unmount
   };
   
 
@@ -187,10 +208,14 @@ export default function ChatClient({ sessionId }: { sessionId: string }) {
         }
       >
         {sidebarOpen && (
-          <div className="sm:hidden fixed inset-0 z-20 bg-black/40" onClick={() => setSidebarOpen(false)} aria-hidden="true" />
+          <div
+            className="sm:hidden fixed inset-0 z-20 bg-black/40"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
+          />
         )}
 
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 z-40">
           <h2 className="text-lg font-semibold text-black dark:text-neutral-100">Sessions</h2>
           <div className="flex items-center gap-2">
             <Button
@@ -216,7 +241,7 @@ export default function ChatClient({ sessionId }: { sessionId: string }) {
               <div
                 role="link"
                 tabIndex={0}
-                className="block hover:underline cursor-pointer"
+                className="block hover:underline cursor-pointer z-40"
                 onClick={() => goToSession(s.id)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") goToSession(s.id);
