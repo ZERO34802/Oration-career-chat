@@ -53,16 +53,16 @@ export default function ChatClient({ sessionId }: { sessionId: string }) {
   
 
   const goToSession = (sid: string) => {
-    if (navBusyRef.current) return;
+    if (navBusyRef.current || String(sid) === String(id)) return;
     navBusyRef.current = true;
     setSidebarOpen(false);
-    // allow the sidebar/backdrop to unmount before navigating
+    const nonce = Date.now(); // cache buster
     setTimeout(() => {
-      router.replace(`/chat/${sid}`);
-      // release lock a bit later to avoid rapid taps
+      router.replace(`/chat/${sid}?n=${nonce}`);
       setTimeout(() => { navBusyRef.current = false; }, 150);
-    }, 50);
+    }, 100); // 100ms works best on mobile Safari
   };
+  
 
   const typedKey = `typed:lastAssistant:${id}`;
   const getStoredTypedId = () => (typeof window === "undefined" ? null : localStorage.getItem(typedKey));
@@ -213,20 +213,22 @@ export default function ChatClient({ sessionId }: { sessionId: string }) {
         <ul className="space-y-2 overflow-auto pr-1">
           {(sessions.data?.items ?? []).map((s) => (
             <li key={s.id} className={`truncate ${String(s.id) === String(id) ? "font-semibold" : ""}`}>
-              <Link
-                className="block hover:underline"
-                href={`/chat/${s.id}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  goToSession(s.id);
+              <div
+                role="link"
+                tabIndex={0}
+                className="block hover:underline cursor-pointer"
+                onClick={() => goToSession(s.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") goToSession(s.id);
                 }}
               >
                 {s.title}
                 <span className="block text-xs text-gray-500">
                   {new Date((s as any).updatedAt ?? Date.now()).toLocaleString?.() ?? ""}
                 </span>
-              </Link>
+              </div>
             </li>
+
           ))}
         </ul>
       </aside>
