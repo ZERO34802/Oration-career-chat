@@ -202,7 +202,6 @@ Remove-Item Env:DATABASE_URL
 ## Security
 
 - Secrets only in environment variables (local `.env`, Vercel settings).  
-- If `.env` was ever committed, remove from history and rotate: DB password, `NEXTAUTH_SECRET`, and AI keys.
 
 ---
 
