@@ -3,7 +3,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -25,10 +25,25 @@ export default function ChatSessionPage() {
   const [assistantTyping, setAssistantTyping] = useState(false);
   const [userTyping, setUserTyping] = useState(false);
   const [lastSentId, setLastSentId] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const scrollToBottom = (smooth = true) => {
+    bottomRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "end" });
+  };
 
   // Typewriter state (newest assistant message)
   const [typingMsgId, setTypingMsgId] = useState<string | null>(null);
   const [typedText, setTypedText] = useState("");
+
+  const typedKey = `typed:lastAssistant:${id}`;
+  const getStoredTypedId = () => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem(typedKey);
+  };
+  const setStoredTypedId = (val: string) => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(typedKey, val);
+  };
+
 
   // User typing indicator
   useEffect(() => {
@@ -62,6 +77,17 @@ export default function ChatSessionPage() {
     }
   );
 
+  useEffect(() => {
+    if (!data?.items) return;
+    scrollToBottom(false);
+  }, [data?.items?.length]);
+
+  useEffect(() => {
+    if (typingMsgId) {
+      scrollToBottom(true);
+    }
+  }, [typingMsgId, typedText]);
+
   // Start/advance typewriter when a new assistant message arrives
   useEffect(() => {
     const items = data?.items ?? [];
@@ -71,11 +97,20 @@ export default function ChatSessionPage() {
       setTypedText("");
       return;
     }
-    if (typingMsgId !== latestAssistant.id) {
-      setTypingMsgId(latestAssistant.id);
+    const stored = getStoredTypedId();
+    // Only animate if there is no stored id, or the latest assistant id is different (newer) than stored.
+    if (!stored || stored !== latestAssistant.id) {
+      if (typingMsgId !== latestAssistant.id) {
+        setTypingMsgId(latestAssistant.id);
+        setTypedText("");
+      }
+    } else {
+      // Already typed before — render fully
+      setTypingMsgId(null);
       setTypedText("");
     }
   }, [data?.items, typingMsgId]);
+
 
   useEffect(() => {
     if (!typingMsgId) return;
@@ -84,7 +119,11 @@ export default function ChatSessionPage() {
     if (!msg) return;
 
     const full = msg.content as string;
-    if (typedText.length >= full.length) return;
+    if (typedText.length >= full.length) {
+      // Mark as typed so it won't replay next time
+      setStoredTypedId(typingMsgId);
+      return;
+    }
 
     const t = setTimeout(() => {
       setTypedText(full.slice(0, typedText.length + 2)); // 2 chars per tick
@@ -92,6 +131,7 @@ export default function ChatSessionPage() {
 
     return () => clearTimeout(t);
   }, [typingMsgId, typedText, data?.items]);
+
 
   // Create session
   const create = trpc.session.create.useMutation({
@@ -119,6 +159,7 @@ export default function ChatSessionPage() {
       setAssistantTyping(false);
       utils.message.list.invalidate({ sessionId: String(id) });
       utils.session.list.invalidate();
+      scrollToBottom(true);
     },
     onError: () => {
       setAssistantTyping(false);
@@ -248,6 +289,7 @@ export default function ChatSessionPage() {
               </li>
             )}
           </ul>
+          <div ref={bottomRef} />
         </section>
 
         {userTyping && (
