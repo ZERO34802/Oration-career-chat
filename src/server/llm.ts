@@ -28,7 +28,7 @@ export async function getAssistantReply(messages: ChatMessage[]): Promise<string
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
       "HTTP-Referer": process.env.NEXTAUTH_URL || "http://localhost:3001",
-      "X-Title": "Oration Career Chat",
+      "X-Title": "Career Chat",
     },
     body: JSON.stringify({
       model: DEFAULT_MODEL,

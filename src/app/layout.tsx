@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Oration Career Chat",
+  title: " Career Chat",
   description: "Career counseller Chat",
 };
 
