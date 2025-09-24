@@ -1,61 +1,94 @@
-// src/app/auth/login/page.tsx
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+
 
 export default function LoginPage() {
   const router = useRouter();
-  const params = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [err, setErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const registered = params.get("registered") === "1";
-
-  async function submit(e: React.FormEvent) {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErr(null);
-    setLoading(true);
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
-    setLoading(false);
-    if (res?.error) {
-      setErr("Invalid email or password");
-      return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      const res = await signIn("credentials", {
+        email,
+        password,
+        redirect: true,
+        callbackUrl: "/chat",
+      });
+
+      // When redirect: true, NextAuth navigates; no further code runs after redirect.
+      // If NextAuth returns without redirect (e.g., credentials invalid), fall through:
+      setSubmitting(false);
+    } catch (e: any) {
+      setError("Invalid email or password");
+      setSubmitting(false);
     }
-    router.push("/chat");
-  }
+  };
+
 
   return (
-    <main className="max-w-sm mx-auto p-6">
-      <h1 className="text-xl mb-4">Sign in</h1>
-      {registered && <p className="text-green-600 text-sm mb-2">Account created. Please sign in.</p>}
-      <form onSubmit={submit} className="flex flex-col gap-3">
-        <input
-          className="border p-2 rounded"
-          placeholder="Email"
-          type="email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-        />
-        <input
-          className="border p-2 rounded"
-          placeholder="Password"
-          type="password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-        />
-        {err && <p className="text-red-600 text-sm">{err}</p>}
-        <button className="bg-black text-white rounded py-2" disabled={loading}>
-          {loading ? "Signing in..." : "Sign in"}
-        </button>
-      </form>
+    <main className="min-h-screen bg-white text-black dark:bg-neutral-950 dark:text-neutral-100 flex items-center justify-center px-4">
+      <div className="w-full max-w-md">
+        <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 rounded-xl shadow-sm p-6">
+          <h1 className="text-2xl font-semibold mb-1">Sign in</h1>
+          <p className="text-sm text-gray-500 dark:text-neutral-400 mb-6">
+            Welcome back. Enter credentials to continue.
+          </p>
+
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm mb-1">Email</label>
+              <input
+                type="email"
+                required
+                className="w-full rounded-md border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm mb-1">Password</label>
+              <input
+                type="password"
+                required
+                className="w-full rounded-md border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+
+            {error && <div className="text-sm text-red-600">{error}</div>}
+
+            <Button type="submit" className="w-full" disabled={submitting}>
+              {submitting ? "Signing in…" : "Sign in"}
+            </Button>
+          </form>
+
+          <p className="mt-6 text-sm text-gray-500 dark:text-neutral-400">
+            New here?{" "}
+            <Link href="/auth/register" className="text-blue-600 hover:underline">
+              Create an account
+            </Link>
+          </p>
+        </div>
+
+        <p className="mt-6 text-center text-xs text-gray-400">
+          By continuing, agreement to Terms and Privacy applies.
+        </p>
+      </div>
     </main>
   );
 }
