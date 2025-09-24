@@ -1,6 +1,4 @@
 // src/app/chat/[id]/page.tsx (SERVER)
-
-// Route options must live in a server file
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 

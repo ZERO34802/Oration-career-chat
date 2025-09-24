@@ -31,7 +31,7 @@ export default function ChatClient({ sessionId }: { sessionId: string }) {
   };
   const [creating, setCreating] = useState(false);
 
-  // Typewriter state
+  // Typewriter
   const [typingMsgId, setTypingMsgId] = useState<string | null>(null);
   const [typedText, setTypedText] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -65,7 +65,7 @@ export default function ChatClient({ sessionId }: { sessionId: string }) {
 
   const hasId = typeof id === "string" && id.length > 0;
 
-  // Messages (paginated)
+  // Messages
   const { data, isLoading, error, isFetching } = trpc.message.list.useQuery(
     { sessionId: String(id), cursor, take: 30 },
     { enabled: hasId, placeholderData: (prev) => prev, refetchOnWindowFocus: false, staleTime: 5_000 }
@@ -198,15 +198,146 @@ export default function ChatClient({ sessionId }: { sessionId: string }) {
                 }}
               >
                 {s.title}
-                <span className="block text-xs text-gray-500">{new Date((s as any).updatedAt ?? Date.now()).toLocaleString?.() ?? ""}</span>
+                <span className="block text-xs text-gray-500">
+                  {new Date((s as any).updatedAt ?? Date.now()).toLocaleString?.() ?? ""}
+                </span>
               </Link>
             </li>
           ))}
         </ul>
       </aside>
 
-      {/* Main ... keep the rest of your JSX unchanged */}
-      {/* ... header, messages, composer (unchanged from your current file) */}
+      {/* Main */}
+      <main className="flex-1 flex flex-col bg-white dark:bg-neutral-950 min-h-0">
+        {/* Header with rename */}
+        <header className="border-b p-2 sm:p-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen((v) => !v)}
+            className="sm:hidden inline-flex items-center justify-center w-9 h-9 rounded-md border border-gray-300 dark:border-neutral-700"
+            aria-label="Toggle sidebar"
+          >
+            <span className="block w-5 h-0.5 bg-current mb-1"></span>
+            <span className="block w-5 h-0.5 bg-current mb-1"></span>
+            <span className="block w-5 h-0.5 bg-current"></span>
+          </button>
+
+          <input
+            className="border px-2 py-1 rounded w-full sm:w-[420px] sm:max-w-[70vw]"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={() => {
+              const trimmed = title.trim();
+              if (trimmed && trimmed !== currentTitle) {
+                rename.mutate({ id: String(id), title: trimmed });
+              } else {
+                setTitle(currentTitle);
+              }
+            }}
+          />
+          {rename.isPending && <span className="text-xs text-gray-500">Saving…</span>}
+          <div className="ml-auto">
+            <ThemeToggle />
+            <LogoutButton />
+          </div>
+        </header>
+
+        {/* Messages */}
+        <section className="flex-1 overflow-auto p-4">
+          {isLoading && <p>Loading…</p>}
+          {error && <p className="text-red-600">Error loading messages</p>}
+
+          {data?.nextCursor && (
+            <div className="mb-3 text-black dark:text-neutral-100">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isFetching}
+                onClick={() => setCursor(data.nextCursor!)}
+              >
+                {isFetching ? "Loading…" : "Load older"}
+              </Button>
+            </div>
+          )}
+
+          <ul className="space-y-3 max-w-3xl mx-auto px-1 sm:px-0">
+            {(data?.items ?? []).map((m) => (
+              <li key={m.id} className={"flex " + (m.role === "user" ? "justify-end" : "justify-start")}>
+                <div
+                  className={
+                    "rounded-md px-3 py-2 whitespace-pre-wrap break-words max-w-[80%] " +
+                    (m.role === "assistant"
+                      ? "bg-gray-100 text-black dark:bg-neutral-800 dark:text-neutral-100"
+                      : "bg-white text-black border dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-800")
+                  }
+                >
+                  <div className="text-xs text-gray-500 dark:text-neutral-400 mb-1">
+                    {m.role === "assistant" ? "Assistant" : "User"}
+                    {m.role === "user" && lastSentId === m.id && (
+                      <span className="ml-2 text-[10px] text-gray-400">Sent ✓</span>
+                    )}
+                  </div>
+
+                  <div>{m.role === "assistant" && typingMsgId === m.id ? typedText : m.content}</div>
+                </div>
+              </li>
+            ))}
+
+            {pendingUser && (
+              <li className="flex justify-end">
+                <div className="rounded-md px-3 py-2 bg-white text-black border dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-800 whitespace-pre-wrap break-words max-w-[80%]">
+                  <div className="text-xs text-gray-500 dark:text-neutral-400 mb-1">User</div>
+                  <div>{pendingUser}</div>
+                </div>
+              </li>
+            )}
+
+            {assistantTyping && (
+              <li className="flex justify-start">
+                <div className="rounded-md px-3 py-2 bg-gray-100 text-black dark:bg-neutral-800 dark:text-neutral-100 max-w-[80%]">
+                  <div className="text-xs text-gray-500 dark:text-neutral-400 mb-1">Assistant</div>
+                  <span className="inline-flex gap-1 items-end">
+                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-.3s]"></span>
+                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-.15s]"></span>
+                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></span>
+                  </span>
+                </div>
+              </li>
+            )}
+          </ul>
+          <div ref={bottomRef} />
+        </section>
+
+        {/* Typing indicator */}
+        {userTyping && <div className="px-3 pb-2 text-xs text-gray-500">Typing…</div>}
+
+        {/* Composer */}
+        <footer className="border-t p-2 sm:p-3 flex gap-2 bg-white dark:bg-neutral-950 dark:border-neutral-800">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Type a message"
+            className="border px-3 py-2 rounded flex-1 resize-none h-[44px] max-h-[140px] bg-white text-black dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-800"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                const content = text.trim();
+                if (content && hasId) send.mutate({ sessionId: String(id), content });
+              }
+            }}
+          />
+          <Button
+            className="min-w-[72px] min-h-[44px]"
+            disabled={!text.trim() || send.isPending || !hasId}
+            onClick={() => {
+              const content = text.trim();
+              if (content && hasId) send.mutate({ sessionId: String(id), content });
+            }}
+          >
+            {send.isPending ? "Sending…" : "Send"}
+          </Button>
+        </footer>
+      </main>
     </div>
   );
 }
