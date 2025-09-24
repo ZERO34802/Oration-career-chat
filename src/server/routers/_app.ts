@@ -1,12 +1,13 @@
-import { router } from "@/server/trpc";
-import { exampleRouter } from "@/server/routers/example";
-import { sessionRouter } from "@/server/routers/session";
-import { messageRouter } from "@/server/routers/message";
+// src/server/routers/_app.ts
+import { router } from "../trpc";
+import { sessionRouter } from "./session";
+import { messageRouter } from "./message";
+import { exampleRouter } from "./example";
 
 export const appRouter = router({
-  example: exampleRouter,
   session: sessionRouter,
   message: messageRouter,
+  example: exampleRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -1,29 +1,20 @@
 // src/app/api/trpc/[trpc]/route.ts
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
-import { appRouter } from "@/server/routers/_app";
 import { getServerSession } from "next-auth";
-// If you have "@" alias set in tsconfig.json, use this import:
+import { appRouter } from "@/server/routers/_app";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-// If you do NOT have the "@" alias configured, comment the line above
-// and uncomment the relative import below instead:
-// import { authOptions } from "../../auth/[...nextauth]/route";
+import { createTRPCContext } from "@/server/trpc";
 
-/**
- * Create tRPC context per request.
- * Exposes userId (if signed in) so routers can enforce authorization.
- */
-async function createContext() {
+const handler = async (req: Request) => {
   const session = await getServerSession(authOptions);
-  const userId = (session as any)?.userId as string | undefined;
-  return { userId };
-}
+  const ctx = createTRPCContext({ userId: (session as any)?.userId as string | undefined });
 
-const handler = (req: Request) =>
-  fetchRequestHandler({
+  return fetchRequestHandler({
     endpoint: "/api/trpc",
     req,
     router: appRouter,
-    createContext,
+    createContext: () => ctx,
   });
+};
 
 export { handler as GET, handler as POST };
