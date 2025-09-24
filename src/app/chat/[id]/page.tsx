@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { LogoutButton } from "@/components/auth/logout-button";
 
 
 export default function ChatSessionPage() {
@@ -97,11 +96,11 @@ export default function ChatSessionPage() {
 
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen bg-white text-black dark:bg-neutral-950 dark:text-neutral-100">
       {/* Sidebar */}
-      <aside className="w-72 border-r p-3 flex flex-col">
+      <aside className="w-72 border-r p-3 flex flex-col bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Sessions</h2>
+          <h2 className="text-lg font-semibold text-black dark:text-neutral-100">Sessions</h2>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => create.mutate({ title: "New Chat" })}>
               New
@@ -127,7 +126,7 @@ export default function ChatSessionPage() {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col bg-white dark:bg-neutral-950">
         {/* Header with rename */}
         <header className="border-b p-3 flex items-center gap-2">
           <input
@@ -156,7 +155,7 @@ export default function ChatSessionPage() {
           {error && <p className="text-red-600">Error loading messages</p>}
 
           {data?.nextCursor && (
-            <div className="mb-3">
+            <div className="mb-3 text-black dark:text-neutral-100">
               <Button
                 variant="outline"
                 size="sm"
@@ -174,10 +173,13 @@ export default function ChatSessionPage() {
                 <div
                   className={
                     "rounded-md px-3 py-2 whitespace-pre-wrap break-words " +
-                    (m.role === "assistant" ? "bg-gray-100" : "bg-white border")
+                    (m.role === "assistant"
+                      ? "bg-gray-100 text-black dark:bg-neutral-800 dark:text-neutral-100"
+                      : "bg-white text-black border dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-800")
                   }
                 >
-                  <div className="text-xs text-gray-500 mb-1">
+
+                  <div className="text-xs text-gray-500 dark:text-neutral-400 mb-1">
                     {m.role === "assistant" ? "Assistant" : "User"}
                     {m.role === "user" && lastSentId === m.id && (
                       <span className="ml-2 text-[10px] text-gray-400">Sent ✓</span>
@@ -191,7 +193,7 @@ export default function ChatSessionPage() {
 
             {pendingUser && (
               <li className="flex">
-                <div className="rounded-md px-3 py-2 bg-white border whitespace-pre-wrap break-words">
+                <div className="rounded-md px-3 py-2 bg-white text-black border dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-800 whitespace-pre-wrap break-words">
                   <div className="text-xs text-gray-500 mb-1">User</div>
                   <div>{pendingUser}</div>
                 </div>
@@ -200,7 +202,7 @@ export default function ChatSessionPage() {
 
             {assistantTyping && (
               <li className="flex">
-                <div className="rounded-md px-3 py-2 bg-gray-100">
+                <div className="rounded-md px-3 py-2 bg-gray-100 text-black dark:bg-neutral-800 dark:text-neutral-100">
                   <div className="text-xs text-gray-500 mb-1">Assistant</div>
                   <span className="inline-flex gap-1 items-end">
                     <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-.3s]"></span>
@@ -218,12 +220,12 @@ export default function ChatSessionPage() {
         )}
 
         {/* Composer */}
-        <footer className="border-t p-3 flex gap-2">
+        <footer className="border-t p-3 flex gap-2 bg-white dark:bg-neutral-950 dark:border-neutral-800">
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Type a message"
-            className="border px-3 py-2 rounded flex-1 resize-none h-[44px] max-h-[120px]"
+            className="border px-3 py-2 rounded flex-1 resize-none h-[44px] max-h-[120px] bg-white text-black dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-800"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -232,6 +234,7 @@ export default function ChatSessionPage() {
               }
             }}
           />
+
           <Button
             disabled={!text.trim() || send.isPending || !hasId}
             onClick={() => {
