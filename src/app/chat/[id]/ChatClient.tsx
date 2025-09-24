@@ -235,24 +235,24 @@ export default function ChatClient({ sessionId }: { sessionId: string }) {
           </div>
         </div>
 
-        <ul className="space-y-2 overflow-auto pr-1">
+        <ul className="space-y-2 overflow-auto pr-1 z-40">
           {(sessions.data?.items ?? []).map((s) => (
             <li key={s.id} className={`truncate ${String(s.id) === String(id) ? "font-semibold" : ""}`}>
-              <div
-                role="link"
-                tabIndex={0}
-                className="block hover:underline cursor-pointer z-40"
+              <Button
+                type="button"
+                variant="ghost"               // looks like a plain row/link
+                className="w-full justify-start px-0 h-auto py-1 text-left hover:underline relative z-40"
                 onClick={() => goToSession(s.id)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") goToSession(s.id);
-                }}
               >
-                {s.title}
-                <span className="block text-xs text-gray-500">
-                  {new Date((s as any).updatedAt ?? Date.now()).toLocaleString?.() ?? ""}
+                <span className="block w-full">
+                  {s.title}
+                  <span className="block text-xs text-gray-500">
+                    {new Date((s as any).updatedAt ?? Date.now()).toLocaleString?.() ?? ""}
+                  </span>
                 </span>
-              </div>
+              </Button>
             </li>
+
 
           ))}
         </ul>
