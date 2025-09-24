@@ -164,14 +164,31 @@ export default function ChatSessionPage() {
   });
 
   return (
-    <div className="flex h-screen flex-col sm:flex-row bg-white text-black dark:bg-neutral-950 dark:text-neutral-100">
+    <div className="flex h-screen flex-col sm:flex-row bg-white text-black dark:bg-neutral-950 dark:text-neutral-100 overflow-hidden">
       {/* Sidebar */}
       <aside
         className={
-          "sm:w-72 w-full sm:h-auto h-[200px] sm:h-auto border-b sm:border-b-0 sm:border-r p-3 flex flex-col bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 overflow-auto " +
-          (sidebarOpen ? "block" : "hidden sm:block")
+          // Base look
+          "sm:w-72 w-[85%] max-w-[22rem] sm:max-w-none sm:h-auto h-full sm:h-auto sm:relative fixed inset-y-0 left-0 z-30 " +
+          "border-b sm:border-b-0 sm:border-r p-3 flex flex-col bg-gray-50 dark:bg-neutral-900 dark:border-neutral-800 " +
+          // Scrolling
+          "overflow-auto " +
+          // Animation on mobile
+          "transition-transform duration-300 ease-out " +
+          (sidebarOpen ? "translate-x-0" : "-translate-x-full sm:translate-x-0")
         }
       >
+
+        {/* Backdrop on mobile when sidebar is open */}
+        {sidebarOpen && (
+          <div
+            className="sm:hidden fixed inset-0 z-20 bg-black/40"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+
+
 
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-black dark:text-neutral-100">Sessions</h2>
@@ -184,9 +201,9 @@ export default function ChatSessionPage() {
                 setSidebarOpen(false);
               }}
             >
-
               New
             </Button>
+
             <Link href="/chat" className="text-sm underline">
               All
             </Link>
