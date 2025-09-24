@@ -32,3 +32,7 @@ export default async function ChatIndexPage() {
 
   redirect(`/chat/${created.id}`);
 }
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
