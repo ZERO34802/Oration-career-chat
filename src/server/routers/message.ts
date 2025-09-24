@@ -38,52 +38,53 @@ export const messageRouter = router({
 
   // New: Saves user msg, calls model, saves assistant reply, returns both
   sendMessage: publicProcedure
-    .input(z.object({ sessionId: z.string().uuid(), content: z.string().min(1) }))
-    .mutation(async ({ input }) => {
-      // 1) Save user message
-      const userMsg = await prisma.message.create({
-        data: { sessionId: input.sessionId, role: "user", content: input.content },
-        select: { id: true, role: true, content: true, createdAt: true },
-      });
+  .input(z.object({ sessionId: z.string().uuid(), content: z.string().min(1) }))
+  .mutation(async ({ input }) => {
+    // 1) Save user message
+    const userMsg = await prisma.message.create({
+      data: { sessionId: input.sessionId, role: "user", content: input.content },
+      select: { id: true, role: true, content: true, createdAt: true },
+    });
 
-      // 1a) Auto-name session from first user message if title is default/empty
-      const session = await prisma.chatSession.findUnique({
+    // 1a) Auto-name from first user message if title is default/empty
+    const session = await prisma.chatSession.findUnique({
+      where: { id: input.sessionId },
+      select: { title: true },
+    });
+    if (session && (/^new\s*/i.test(session.title) || session.title.trim().length === 0)) {
+      const newTitle = userMsg.content.trim().split(/\s+/).slice(0, 8).join(" ");
+      await prisma.chatSession.update({
         where: { id: input.sessionId },
-        select: { title: true },
+        data: { title: newTitle, updatedAt: new Date() },
       });
-      if (session && (session.title === "New session" || session.title.trim().length === 0)) {
-        const newTitle = userMsg.content.split(/\s+/).slice(0, 8).join(" ");
-        await prisma.chatSession.update({
-          where: { id: input.sessionId },
-          data: { title: newTitle, updatedAt: new Date() },
-        });
-      }
+    }
 
-      // 2) Collect recent context (last ~24, ascending)
-      const recent = await prisma.message.findMany({
-        where: { sessionId: input.sessionId },
-        orderBy: { createdAt: "asc" },
-        take: 24,
-        select: { role: true, content: true },
-      });
+    // 2) Collect recent context (ascending)
+    const recent = await prisma.message.findMany({
+      where: { sessionId: input.sessionId },
+      orderBy: { createdAt: "asc" },
+      take: 24,
+      select: { role: true, content: true },
+    });
 
-      // 3) System prompt for career counselor tone
-      const system = {
-        role: "system" as const,
-        content:
-          "You are a warm, practical career counselor. Give concise, actionable guidance and next steps, and ask clarifying questions when helpful.",
-      };
+    // 3) System prompt for tone
+    const system = {
+      role: "system" as const,
+      content:
+        "You are a warm, practical career counselor. Give concise, actionable guidance and next steps, and ask clarifying questions when helpful.",
+    };
 
-      // 4) Call the LLM
-      const replyText = await getAssistantReply([system, ...recent]);
+    // 4) Call the LLM
+    const replyText = await getAssistantReply([system, ...recent]);
 
-      // 5) Save assistant message and touch session
-      const aiMsg = await prisma.message.create({
-        data: { sessionId: input.sessionId, role: "assistant", content: replyText },
-        select: { id: true, role: true, content: true, createdAt: true },
-      });
-      await prisma.chatSession.update({ where: { id: input.sessionId }, data: { updatedAt: new Date() } });
+    // 5) Save assistant message and touch session
+    const aiMsg = await prisma.message.create({
+      data: { sessionId: input.sessionId, role: "assistant", content: replyText },
+      select: { id: true, role: true, content: true, createdAt: true },
+    });
+    await prisma.chatSession.update({ where: { id: input.sessionId }, data: { updatedAt: new Date() } });
 
-      return { user: userMsg, assistant: aiMsg };
-    }),
+    return { user: userMsg, assistant: aiMsg };
+  }),
+
 });
