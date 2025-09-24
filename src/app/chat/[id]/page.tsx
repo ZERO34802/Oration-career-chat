@@ -1,6 +1,9 @@
 // src/app/chat/[id]/page.tsx
 "use client";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { useParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { useEffect, useMemo, useState, useRef } from "react";
@@ -8,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+
+
 
 export default function ChatSessionPage() {
   const { id } = useParams<{ id: string }>();
@@ -36,6 +41,12 @@ export default function ChatSessionPage() {
   const [typingMsgId, setTypingMsgId] = useState<string | null>(null);
   const [typedText, setTypedText] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+
+  const goToSession = (sid: string) => {
+    setSidebarOpen(false);
+    setTimeout(() => router.replace(`/chat/${sid}`), 50);
+  };
 
 
   const typedKey = `typed:lastAssistant:${id}`;
@@ -136,9 +147,10 @@ export default function ChatSessionPage() {
     onMutate: () => setCreating(true),
     onSuccess: (s) => {
       utils.session.list.invalidate();
-      // Close mobile sidebar
-      setSidebarOpen(false);
-      if (s?.id) router.push(`/chat/${s.id}`);
+      if (s?.id) goToSession(s.id);
+    },
+    onError: (e) => {
+      console.error("Create failed:", e);
     },
     onSettled: () => setCreating(false),
   });
@@ -203,6 +215,7 @@ export default function ChatSessionPage() {
             <Button
               size="sm"
               variant="outline"
+              className="relative z-40 pointer-events-auto"
               disabled={creating}
               onClick={() => {
                 if (creating) return;
@@ -212,6 +225,7 @@ export default function ChatSessionPage() {
             >
               {creating ? "Creating…" : "New"}
             </Button>
+
 
 
             <Link href="/chat" className="text-sm underline">
@@ -226,8 +240,11 @@ export default function ChatSessionPage() {
               <Link
                 className="block hover:underline"
                 href={`/chat/${s.id}`}
-                onClick={() => setSidebarOpen(false)}
-              >
+                onClick={(e) => {
+                  e.preventDefault();
+                  goToSession(s.id);
+                }}
+              >     
 
                 {s.title}
                 <span className="block text-xs text-gray-500">
