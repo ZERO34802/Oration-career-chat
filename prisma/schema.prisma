@@ -1,3 +1,5 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,32 +9,46 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/*
+  Changes made:
+  - User: added passwordHash (for credentials auth), image (optional avatar), updatedAt, and kept email unique.
+  - Added @@map on enum Role not needed; kept as-is.
+  - Kept ChatSession and Message intact, with existing indexes.
+  - If OAuth providers are added later, User can store provider accounts in an Account table; not required for credentials-only.
+*/
+
 model User {
-  id        String        @id @default(uuid())
-  email     String?       @unique
-  name      String?
-  createdAt DateTime      @default(now())
-  sessions  ChatSession[]
+  id           String        @id @default(uuid())
+  email        String?       @unique
+  name         String?
+  image        String?
+  passwordHash String?       // null for OAuth users, set for credentials users
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  sessions     ChatSession[]
 }
 
 model ChatSession {
-  id        String     @id @default(uuid())
-  user      User?      @relation(fields: [userId], references: [id])
+  id        String      @id @default(uuid())
+  user      User?       @relation(fields: [userId], references: [id])
   userId    String?
-  title     String     @default("New session")
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  title     String      @default("New session")
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
   messages  Message[]
+
   @@index([userId, updatedAt])
 }
 
 model Message {
-  id        String     @id @default(uuid())
+  id        String      @id @default(uuid())
   session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   sessionId String
   role      Role
   content   String
   createdAt DateTime    @default(now())
+
   @@index([sessionId, createdAt])
 }
 
