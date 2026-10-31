@@ -8,19 +8,17 @@ AI-powered career counseling app built with Next.js, tRPC, Prisma, and PostgreSQ
 
 ## Screenshots
 
-![Desktop – Chat](C:\oration-career-chat\public\screenshots\chat-desktop-1.jpg)
+![Desktop – Chat](public/screenshots/chat-desktop-1.jpg)
 
 <p>
-  <img src="C:\oration-career-chat\public\screenshots\chat-mobile-1.jpg" alt="Mobile – Sessions" width="45%" />
+  <img src="public/screenshots/chat-mobile-1.jpg" alt="Mobile – Sessions" width="45%" />
 </p>
 
 
 ## Demo Video
 
-<video src="C:\oration-career-chat\docs\demo1.mp4" controls width="720" muted></video>
+[▶ Watch the demo (MP4)](docs/demo1.mp4)
 
-> If the video doesn’t auto-play in your client, use the link below:
-- MP4: [Download/Play](docs/demo.mp4)
 
 
 ---
@@ -65,8 +63,8 @@ AI-powered career counseling app built with Next.js, tRPC, Prisma, and PostgreSQ
 ### 1. Install
 
 ```bash
-git clone https://github.com/<username>/<repo>.git
-cd <repo>
+git clone https://github.com/ZERO34802/Oration-career-chat.git
+cd Oration-career-chat
 pnpm install # or: npm install
 ```
 
